@@ -166,4 +166,47 @@ class CRM_Civisocial_BAO_CivisocialUser {
 			return $contact_id;
 		}
 	}
+
+	public static function handle_twitter_data($user_data_response, $access_token) {
+		$existing_contact_id = self::check_existing_social_user(CRM_Utils_Array::value("id", $user_data_response));
+		if ($existing_contact_id) {
+			return $existing_contact_id;
+		} else {
+			$email = "";
+			// $email = CRM_Utils_Array::value("email", $user_data_response);
+			$contacts = civicrm_api3('contact', 'get', array("email" => $email));
+			// User was not found
+			if (($contacts["count"] == 0) or ($email == NULL)) {
+				// Create a new contact
+				$params = array(
+					'first_name' => CRM_Utils_Array::value("name", $user_data_response),
+					'display_name' => CRM_Utils_Array::value("name", $user_data_response),
+					'preffered_language' => CRM_Utils_Array::value("lang", $user_data_response),
+					// 'email' => CRM_Utils_Array::value("email", $user_data_response),
+					'contact_type' => 'Individual',
+				);
+				$result = civicrm_api3('Contact', 'create', $params);
+				// Create a new civisocial user.
+				$contact_id = $result["id"];
+			} else {
+				// Contact was found
+				$contact_id = 0;
+				foreach ($contacts["values"] as $key => $value) {
+					$contact_id = $key;
+				}
+			}
+
+			$timestamp = time();
+			$params = array(
+				'contact_id' => $contact_id,
+				'social_user_id' => CRM_Utils_Array::value("id", $user_data_response),
+				'access_token' => "",
+				'oauth_object' => "",
+				'backend' => 'twitter',
+				'created_date' => $timestamp, // TODO: Created Date not being recorded
+			);
+			self::create($params);
+			return $contact_id;
+		}
+	}
 }
